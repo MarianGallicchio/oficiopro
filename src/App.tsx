@@ -17,6 +17,8 @@ const THEME_AURORA: Record<UserAppSettings['theme'], string> = {
   sakura: 'aurora-sakura',
   cyberpunk: 'aurora-cyberpunk',
   golden: 'aurora-golden',
+  aurora: 'aurora-aurora',
+  nocturn: 'aurora-nocturn',
 };
 
 /** App ya autenticada: shell + motor de alarmas + cuerpo de la app. */

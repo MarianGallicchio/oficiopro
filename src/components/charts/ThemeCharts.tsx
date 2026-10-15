@@ -384,6 +384,16 @@ const THEME_SKINS: Record<AppThemeId, ThemeChartSkin> = {
     expenseGlow: 'rgba(180,83,9,0.4)', axis: 'rgba(180,83,9,0.3)',
     track: 'rgba(250,204,21,0.25)', donutGlow: 'rgba(250,204,21,0.25)',
   },
+  aurora: {
+    income: '#8b5cf6', expense: '#f472b6', incomeGlow: 'rgba(139,92,246,0.55)',
+    expenseGlow: 'rgba(244,114,182,0.55)', axis: 'rgba(196,181,253,0.35)',
+    track: 'rgba(196,181,253,0.18)', donutGlow: 'rgba(139,92,246,0.3)',
+  },
+  nocturn: {
+    income: '#7dd3fc', expense: '#f472b6', incomeGlow: 'rgba(125,211,252,0.55)',
+    expenseGlow: 'rgba(244,114,182,0.55)', axis: 'rgba(148,163,184,0.35)',
+    track: 'rgba(148,163,184,0.18)', donutGlow: 'rgba(125,211,252,0.3)',
+  },
 };
 
 const ym = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;

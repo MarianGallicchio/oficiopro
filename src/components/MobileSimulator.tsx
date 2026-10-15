@@ -1038,33 +1038,47 @@ export const MobileSimulator: React.FC<Props> = ({
                   <div className="bg-white dark:bg-slate-900 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3">
                     <h4 className="font-black text-slate-900 dark:text-white uppercase tracking-wider text-[11px] flex items-center gap-1">
                       <Sparkles className="w-3.5 h-3.5 text-amber-500" /> Apariencia
-                    </h4>
-
-                    {/* Temas animados */}
-                    <div>
-                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Tema visual</p>
-                      <div className="grid grid-cols-2 gap-1.5">
-                        {([
-                          { id: 'minimal', label: 'Minimal', emoji: '◻️' },
-                          { id: 'sakura', label: 'Sakura', emoji: '🌸' },
-                          { id: 'cyberpunk', label: 'Cyberpunk', emoji: '⚡' },
-                          { id: 'golden', label: 'Luxury', emoji: '✨' },
-                        ] as Array<{ id: AppThemeId; label: string; emoji: string }>).map((t) => (
-                          <button
-                            key={t.id}
-                            onClick={() => onUpdateSettings({ ...settings, theme: t.id })}
-                            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border font-bold text-[11px] transition active:scale-95 ${
-                              settings.theme === t.id
-                                ? 'border-transparent text-white shadow-md ' +
-                                  (t.id === 'sakura' ? 'bg-pink-500 shadow-pink-500/30' : t.id === 'cyberpunk' ? 'bg-cyan-500 text-slate-950 shadow-cyan-500/30' : t.id === 'golden' ? 'bg-amber-500 text-slate-950 shadow-amber-500/30' : 'bg-slate-800 dark:bg-sky-600 shadow-slate-800/20')
-                                : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-slate-300 bg-slate-50 dark:bg-slate-950/60'
-                            }`}
-                          >
-                            <span>{t.emoji}</span>
-                            <span>{t.label}</span>
-                            {settings.theme === t.id && <Check className="w-3 h-3 ml-auto" />}
-                          </button>
-                        ))}
+                    </h4>                    {/* Temas animados: galería visual con preview por tema */}
+                    <div className="theme-picker-hero rounded-2xl p-3.5 border border-slate-200 dark:border-slate-700 relative overflow-hidden">
+                      <div className="theme-picker-hero" />
+                      <div className="relative z-10">
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Tema visual</p>
+                          <span className="theme-tag text-[9px] font-bold px-2 py-0.5 rounded-full">elige la atmósfera</span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2">
+                          {([
+                            { id: 'minimal', label: 'Minimal', sub: 'suave / neutro', emoji: '◻️' },
+                            { id: 'sakura', label: 'Sakura', sub: 'rosa / pastel', emoji: '🌸' },
+                            { id: 'cyberpunk', label: 'Cyberpunk', sub: 'neón / nocturno', emoji: '⚡' },
+                            { id: 'golden', label: 'Luxury', sub: 'dorado / lujo', emoji: '✨' },
+                            { id: 'aurora', label: 'Aurora', sub: 'violeta / aurora', emoji: '🌌' },
+                            { id: 'nocturn', label: 'Nocturn', sub: 'hielo / nocturno', emoji: '🌙' },
+                          ] as Array<{ id: AppThemeId; label: string; sub: string; emoji: string }>).map((t) => (
+                            <button
+                              key={t.id}
+                              onClick={() => onUpdateSettings({ ...settings, theme: t.id })}
+                              className={`group relative rounded-xl border text-left overflow-hidden transition active:scale-[0.98] shadow-md ${
+                                settings.theme === t.id
+                                  ? 'border-transparent shadow-xl '+('' +
+                                    (t.id === 'sakura' ? 'sakura-card' : t.id === 'cyberpunk' ? 'cyberpunk-card' : t.id === 'golden' ? 'golden-card' : t.id === 'aurora' ? 'aurora-card' : t.id === 'nocturn' ? 'nocturn-card' : '')+' ')
+                                  : 'border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-900/60'
+                              }`}
+                              style={{}
+                              }
+                            >
+                              <div className={[t.id === 'minimal' ? 'bg-theme-minimal' : 'bg-theme-'+t.id, 'absolute inset-0 opacity-80'].join(' ')} />
+                              <div className="relative z-10 p-2 flex flex-col gap-0.5 h-full">
+                                <span className="theme-icon text-2xl">{t.emoji}</span>
+                                <span className="font-black text-[11px] leading-none">{t.label}</span>
+                                <span className={`text-[8px] uppercase tracking-widest ${settings.theme === t.id ? 'text-white/80' : 'text-slate-500 dark:text-slate-400'}`}>{t.sub}</span>
+                                {settings.theme === t.id && (
+                                  <span className="absolute top-1 right-1 text-[9px] text-white/85">✓</span>
+                                )}
+                              </div>
+                            </button>
+                          ))}
+                        </div>
                       </div>
                     </div>
 

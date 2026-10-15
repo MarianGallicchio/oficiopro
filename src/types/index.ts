@@ -221,7 +221,7 @@ export interface BusinessProfile {
   email: string;
 }
 
-export type AppThemeId = 'minimal' | 'cyberpunk' | 'sakura' | 'golden';
+export type AppThemeId = 'minimal' | 'sakura' | 'cyberpunk' | 'golden' | 'aurora' | 'nocturn';
 export type AppDisplayMode = 'personal' | 'commercial';
 /** Rango analítico de los gráficos de Home (persistido en configuración). */
 export type AppChartRangeId = 'month' | 'quarter' | 'year';
