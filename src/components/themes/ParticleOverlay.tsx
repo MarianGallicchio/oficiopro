@@ -3,200 +3,254 @@ import { AppThemeId } from '../../types';
 
 interface Props {
   theme: AppThemeId;
+  className?: string;
 }
 
-export const ParticleOverlay: React.FC<Props> = ({ theme }) => {
+interface Particle {
+  x: number; y: number;
+  vx: number; vy: number;
+  size: number;
+  rotation: number; rotationSpeed: number;
+  opacity: number; pulse: number;
+  hue: string;
+}
+
+const prefersReducedMotion = () =>
+  typeof window !== 'undefined' &&
+  window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
+/**
+ * Fondo vivo por tema:
+ * - sakura: pétalos de cerezo con estela suave
+ * - cyberpunk: bits de datos neón + scanline + malla de conexiones
+ * - golden: polvo dorado con destello pulsante y lente bokeh
+ * Rendimiento: DPR correcto, densidad adaptable al tamaño, pausa al ocultar pestaña.
+ */
+export const ParticleOverlay: React.FC<Props> = ({ theme, className = '' }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const themeRef = useRef(theme);
+  themeRef.current = theme;
 
   useEffect(() => {
     if (theme === 'minimal') return;
-
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
+    if (prefersReducedMotion()) return; // el CSS aurora estático queda como fondo
 
-    let animationFrameId: number;
-    let width = (canvas.width = canvas.parentElement?.clientWidth || 380);
-    let height = (canvas.height = canvas.parentElement?.clientHeight || 750);
+    let raf = 0;
+    let running = true;
+    let dpr = Math.min(window.devicePixelRatio || 1, 2);
 
-    const handleResize = () => {
-      if (!canvas || !canvas.parentElement) return;
-      width = canvas.width = canvas.parentElement.clientWidth;
-      height = canvas.height = canvas.parentElement.clientHeight;
+    const resize = () => {
+      const parent = canvas.parentElement;
+      if (!parent) return;
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = Math.max(1, Math.floor(parent.clientWidth * dpr));
+      canvas.height = Math.max(1, Math.floor(parent.clientHeight * dpr));
+      canvas.style.width = `${parent.clientWidth}px`;
+      canvas.style.height = `${parent.clientHeight}px`;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     };
+    resize();
 
-    window.addEventListener('resize', handleResize);
+    const w = () => canvas.width / dpr;
+    const h = () => canvas.height / dpr;
 
-    // Particle Classes based on Theme
-    if (theme === 'sakura') {
-      // Falling Cherry Blossom Petals 🌸
-      const petalsCount = 28;
-      const petals: Array<{
-        x: number;
-        y: number;
-        size: number;
-        speedY: number;
-        speedX: number;
-        rotation: number;
-        rotationSpeed: number;
-        opacity: number;
-      }> = [];
+    const rnd = (a: number, b: number) => a + Math.random() * (b - a);
+    const density = Math.min(34, Math.max(14, Math.round((w() * h()) / 26000)));
 
-      for (let i = 0; i < petalsCount; i++) {
-        petals.push({
-          x: Math.random() * width,
-          y: Math.random() * height,
-          size: Math.random() * 9 + 6,
-          speedY: Math.random() * 1.2 + 0.6,
-          speedX: Math.random() * 0.8 - 0.2,
-          rotation: Math.random() * 360,
-          rotationSpeed: (Math.random() - 0.5) * 1.5,
-          opacity: Math.random() * 0.4 + 0.5,
-        });
-      }
+    const particles: Particle[] = Array.from({ length: density }, () => ({
+      x: rnd(0, w()), y: rnd(0, h()),
+      vx: rnd(-0.3, 0.3), vy: 0,
+      size: 0, rotation: rnd(0, Math.PI * 2), rotationSpeed: rnd(-0.02, 0.02),
+      opacity: rnd(0.35, 0.9), pulse: rnd(0, Math.PI * 2),
+      hue: '',
+    }));
 
-      const drawPetal = (x: number, y: number, size: number, rotation: number, opacity: number) => {
-        ctx.save();
-        ctx.translate(x, y);
-        ctx.rotate((rotation * Math.PI) / 180);
-        ctx.beginPath();
-        ctx.moveTo(0, 0);
-        ctx.bezierCurveTo(size / 2, -size / 2, size, -size / 4, size, size / 2);
-        ctx.bezierCurveTo(size, size, size / 2, size, 0, 0);
-        ctx.fillStyle = `rgba(251, 182, 206, ${opacity})`;
-        ctx.shadowColor = 'rgba(244, 114, 182, 0.4)';
-        ctx.shadowBlur = 4;
-        ctx.fill();
-        ctx.restore();
-      };
-
-      const render = () => {
-        ctx.clearRect(0, 0, width, height);
-
-        for (const petal of petals) {
-          petal.y += petal.speedY;
-          petal.x += Math.sin(petal.y * 0.01) * 0.8 + petal.speedX;
-          petal.rotation += petal.rotationSpeed;
-
-          if (petal.y > height + 20) {
-            petal.y = -20;
-            petal.x = Math.random() * width;
-          }
-          if (petal.x > width + 20) petal.x = -20;
-          if (petal.x < -20) petal.x = width + 20;
-
-          drawPetal(petal.x, petal.y, petal.size, petal.rotation, petal.opacity);
-        }
-
-        animationFrameId = requestAnimationFrame(render);
-      };
-
-      render();
-    } else if (theme === 'cyberpunk') {
-      // Cyberpunk Neon Data Scan & Grid Particles ⚡
-      const particlesCount = 20;
-      const particles: Array<{
-        x: number;
-        y: number;
-        size: number;
-        speedY: number;
-        color: string;
-      }> = [];
-
-      for (let i = 0; i < particlesCount; i++) {
-        particles.push({
-          x: Math.random() * width,
-          y: Math.random() * height,
-          size: Math.random() * 2.5 + 1,
-          speedY: Math.random() * 1.5 + 0.5,
-          color: Math.random() > 0.5 ? '#00f0ff' : '#ff007f', // Cyan or Neon Pink
-        });
-      }
-
-      let scanlineY = 0;
-
-      const render = () => {
-        ctx.clearRect(0, 0, width, height);
-
-        // Futuristic Scanline Pulse
-        scanlineY += 1.2;
-        if (scanlineY > height) scanlineY = 0;
-
-        ctx.fillStyle = 'rgba(0, 240, 255, 0.03)';
-        ctx.fillRect(0, scanlineY, width, 3);
-
-        // Data Bits
-        for (const p of particles) {
-          p.y -= p.speedY;
-          if (p.y < 0) {
-            p.y = height;
-            p.x = Math.random() * width;
-          }
-
-          ctx.fillStyle = p.color;
-          ctx.shadowColor = p.color;
-          ctx.shadowBlur = 6;
-          ctx.fillRect(p.x, p.y, p.size, p.size * 2);
-        }
-
-        animationFrameId = requestAnimationFrame(render);
-      };
-
-      render();
-    } else if (theme === 'golden') {
-      // Golden Luxury Sparkles ✨
-      const sparklesCount = 24;
-      const sparkles: Array<{
-        x: number;
-        y: number;
-        radius: number;
-        speedY: number;
-        opacity: number;
-        pulse: number;
-      }> = [];
-
-      for (let i = 0; i < sparklesCount; i++) {
-        sparkles.push({
-          x: Math.random() * width,
-          y: Math.random() * height,
-          radius: Math.random() * 2 + 1,
-          speedY: Math.random() * 0.4 + 0.2,
-          opacity: Math.random() * 0.6 + 0.2,
-          pulse: Math.random() * Math.PI,
-        });
-      }
-
-      const render = () => {
-        ctx.clearRect(0, 0, width, height);
-
-        for (const s of sparkles) {
-          s.y -= s.speedY;
-          s.pulse += 0.03;
-          const currentOpacity = s.opacity + Math.sin(s.pulse) * 0.2;
-
-          if (s.y < -10) {
-            s.y = height + 10;
-            s.x = Math.random() * width;
-          }
-
-          ctx.beginPath();
-          ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(234, 179, 8, ${Math.max(0.1, currentOpacity)})`;
-          ctx.shadowColor = 'rgba(250, 204, 21, 0.5)';
-          ctx.shadowBlur = 5;
-          ctx.fill();
-        }
-
-        animationFrameId = requestAnimationFrame(render);
-      };
-
-      render();
+    // Personalización por tema
+    const t = themeRef.current;
+    if (t === 'sakura') {
+      particles.forEach((p) => {
+        p.size = rnd(6, 14);
+        p.vy = rnd(0.6, 1.4);
+        p.vx = rnd(-0.25, 0.35);
+      });
+    } else if (t === 'cyberpunk') {
+      particles.forEach((p) => {
+        p.size = rnd(1.5, 3);
+        p.vy = -rnd(0.5, 1.6);
+        p.hue = Math.random() > 0.5 ? '0,240,255' : '255,0,127';
+      });
+    } else if (t === 'golden') {
+      particles.forEach((p) => {
+        p.size = rnd(1, 3);
+        p.vy = -rnd(0.2, 0.6);
+      });
     }
 
+    let scanlineY = 0;
+
+    const drawPetal = (p: Particle) => {
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rotation);
+      ctx.beginPath();
+      const s = p.size;
+      ctx.moveTo(0, 0);
+      ctx.bezierCurveTo(s / 2, -s / 2, s, -s / 4, s, s / 2);
+      ctx.bezierCurveTo(s, s, s / 2, s, 0, 0);
+      ctx.fillStyle = `rgba(251,182,206,${p.opacity})`;
+      ctx.shadowColor = 'rgba(244,114,182,0.35)';
+      ctx.shadowBlur = 6;
+      ctx.fill();
+
+      // Nervadura del pétalo
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = `rgba(249,168,212,${p.opacity * 0.6})`;
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.moveTo(s * 0.15, s * 0.1);
+      ctx.quadraticCurveTo(s * 0.6, 0, s * 0.85, s * 0.4);
+      ctx.stroke();
+      ctx.restore();
+    };
+
+    const renderSakura = () => {
+      // Estela sutil
+      ctx.fillStyle = 'rgba(255,241,246,0.05)';
+      ctx.fillRect(0, 0, w(), h());
+      for (const p of particles) {
+        p.y += p.vy;
+        p.x += Math.sin(p.y * 0.012) * 0.7 + p.vx;
+        p.rotation += p.rotationSpeed;
+        if (p.y > h() + 24) { p.y = -24; p.x = rnd(0, w()); }
+        if (p.x > w() + 24) p.x = -24;
+        if (p.x < -24) p.x = w() + 24;
+        drawPetal(p);
+      }
+    };
+
+    const renderCyberpunk = () => {
+      ctx.fillStyle = 'rgba(2,6,23,0.08)';
+      ctx.fillRect(0, 0, w(), h());
+
+      // Malla de conexiones
+      for (let i = 0; i < particles.length; i++) {
+        for (let j = i + 1; j < particles.length; j++) {
+          const a = particles[i], b = particles[j];
+          const dx = a.x - b.x, dy = a.y - b.y;
+          const dist2 = dx * dx + dy * dy;
+          if (dist2 < 9216) {
+            const alpha = (1 - Math.sqrt(dist2) / 96) * 0.16;
+            ctx.strokeStyle = `rgba(0,240,255,${alpha})`;
+            ctx.lineWidth = 0.6;
+            ctx.beginPath();
+            ctx.moveTo(a.x, a.y);
+            ctx.lineTo(b.x, b.y);
+            ctx.stroke();
+          }
+        }
+      }
+
+      // Scanline
+      scanlineY += 1.4;
+      if (scanlineY > h()) scanlineY = 0;
+      const grad = ctx.createLinearGradient(0, scanlineY - 18, 0, scanlineY + 18);
+      grad.addColorStop(0, 'rgba(0,240,255,0)');
+      grad.addColorStop(0.5, 'rgba(0,240,255,0.07)');
+      grad.addColorStop(1, 'rgba(0,240,255,0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, scanlineY - 18, w(), 36);
+
+      for (const p of particles) {
+        p.y += p.vy;
+        p.x += Math.sin(p.y * 0.02) * 0.15;
+        if (p.y < -12) { p.y = h() + 12; p.x = rnd(0, w()); }
+        ctx.fillStyle = `rgba(${p.hue},${p.opacity})`;
+        ctx.shadowColor = `rgba(${p.hue},0.8)`;
+        ctx.shadowBlur = 7;
+        ctx.fillRect(p.x, p.y, p.size, p.size * 2.2);
+      }
+      ctx.shadowBlur = 0;
+    };
+
+    const renderGolden = () => {
+      ctx.fillStyle = 'rgba(255,253,240,0.05)';
+      ctx.fillRect(0, 0, w(), h());
+      for (const p of particles) {
+        p.y += p.vy;
+        p.pulse += 0.035;
+        if (p.y < -12) { p.y = h() + 12; p.x = rnd(0, w()); }
+        const tw = 0.5 + Math.sin(p.pulse) * 0.5;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size * (0.8 + tw * 0.4), 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(234,179,8,${p.opacity * (0.4 + tw * 0.6)})`;
+        ctx.shadowColor = 'rgba(250,204,21,0.55)';
+        ctx.shadowBlur = 5 + tw * 6;
+        ctx.fill();
+      }
+      ctx.shadowBlur = 0;
+
+      // Destello bokeh grande ocasional
+      const moon = particles[0];
+      if (moon) {
+        ctx.beginPath();
+        ctx.arc(moon.x, moon.y, 26 + Math.sin(moon.pulse * 0.4) * 4, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(250,204,21,0.045)';
+        ctx.shadowColor = 'rgba(250,204,21,0.3)';
+        ctx.shadowBlur = 30;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        moon.y -= 0.03;
+        if (moon.y < -40) moon.y = h() + 40;
+      }
+    };
+
+    const render = () => {
+      if (!running) return;
+      ctx.clearRect(0, 0, w(), h());
+      const t = themeRef.current;
+      if (t === 'sakura') renderSakura();
+      else if (t === 'cyberpunk') renderCyberpunk();
+      else if (t === 'golden') renderGolden();
+      raf = requestAnimationFrame(render);
+    };
+
+    const onVisibility = () => {
+      const shouldRun = document.visibilityState === 'visible' && !prefersReducedMotion();
+      if (shouldRun && !running) {
+        running = true;
+        if (!raf) raf = requestAnimationFrame(render);
+      } else if (!shouldRun && running) {
+        running = false;
+        cancelAnimationFrame(raf);
+        raf = 0;
+      }
+    };
+
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const onMqChange = () => {
+      if (mq.matches) {
+        running = false;
+        cancelAnimationFrame(raf);
+        raf = 0;
+      } else {
+        running = true;
+        raf = requestAnimationFrame(render);
+      }
+    };
+    mq.addEventListener('change', onMqChange);
+    document.addEventListener('visibilitychange', onVisibility);
+
+    raf = requestAnimationFrame(render);
+
     return () => {
-      cancelAnimationFrame(animationFrameId);
-      window.removeEventListener('resize', handleResize);
+      running = false;
+      cancelAnimationFrame(raf);
+      mq.removeEventListener('change', onMqChange);
+      document.removeEventListener('visibilitychange', onVisibility);
     };
   }, [theme]);
 
@@ -205,7 +259,8 @@ export const ParticleOverlay: React.FC<Props> = ({ theme }) => {
   return (
     <canvas
       ref={canvasRef}
-      className="absolute inset-0 pointer-events-none z-10 w-full h-full"
+      aria-hidden="true"
+      className={`pointer-events-none inset-0 w-full h-full ${className}`}
     />
   );
 };

@@ -11,6 +11,8 @@ import {
   TimeEntry 
 } from '../types';
 
+export { INITIAL_AGENDA_EVENTS } from './agendaSample';
+
 export const INITIAL_SETTINGS: UserAppSettings = {
   currency: {
     code: 'ARS',
@@ -25,6 +27,8 @@ export const INITIAL_SETTINGS: UserAppSettings = {
   differentiatorMode: 'daily_allowance',
   theme: 'minimal',
   activeMode: 'personal',
+  analyticChartRange: 'month',
+  monthlyNetGoalInCents: 20000000, // $ 200.000 de balance neto mensual
   businessProfile: {
     businessName: 'Servicios Profesionales & Técnicos',
     ownerName: 'Mariano Gómez',

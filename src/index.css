@@ -1,1 +1,104 @@
 @import "tailwindcss";
+
+/* =====================================================
+   TOKENS + ANIMACIONES GLOBALES (OficioPro HUD)
+   ===================================================== */
+
+@keyframes op-aurora {
+  0%   { transform: translate3d(-8%, -6%, 0) scale(1); }
+  33%  { transform: translate3d(6%, 4%, 0) scale(1.08); }
+  66%  { transform: translate3d(-4%, 8%, 0) scale(0.97); }
+  100% { transform: translate3d(-8%, -6%, 0) scale(1); }
+}
+
+@keyframes op-shimmer {
+  from { background-position: -160% 0; }
+  to   { background-position: 260% 0; }
+}
+
+@keyframes op-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
+}
+
+@keyframes op-glow-pulse {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 1; }
+}
+
+/* Fondo aurora suave para shells y pantallas de acceso */
+.aurora-bg {
+  background:
+    radial-gradient(38rem 38rem at 18% 12%, rgba(2,132,199,0.16), transparent 60%),
+    radial-gradient(32rem 32rem at 84% 20%, rgba(16,185,129,0.12), transparent 60%),
+    radial-gradient(30rem 30rem at 70% 88%, rgba(168,85,247,0.12), transparent 60%),
+    radial-gradient(26rem 26rem at 20% 85%, rgba(245,158,11,0.10), transparent 60%);
+  animation: op-aurora 26s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* Alternativas por tema (tinte el aurora según identidad visual) */
+.aurora-sakura .aurora-bg {
+  background:
+    radial-gradient(38rem 38rem at 18% 12%, rgba(244,114,182,0.20), transparent 60%),
+    radial-gradient(32rem 32rem at 84% 20%, rgba(251,113,133,0.14), transparent 60%),
+    radial-gradient(30rem 30rem at 70% 88%, rgba(219,39,119,0.10), transparent 60%);
+}
+
+.aurora-cyberpunk .aurora-bg {
+  background:
+    radial-gradient(38rem 38rem at 18% 12%, rgba(34,211,238,0.16), transparent 60%),
+    radial-gradient(32rem 32rem at 84% 20%, rgba(236,72,153,0.14), transparent 60%),
+    radial-gradient(30rem 30rem at 70% 88%, rgba(59,130,246,0.12), transparent 60%);
+}
+
+.aurora-golden .aurora-bg {
+  background:
+    radial-gradient(38rem 38rem at 18% 12%, rgba(245,158,11,0.18), transparent 60%),
+    radial-gradient(32rem 32rem at 84% 20%, rgba(250,204,21,0.14), transparent 60%),
+    radial-gradient(30rem 30rem at 70% 88%, rgba(180,83,9,0.10), transparent 60%);
+}
+
+/* Tarjeta glass “HUD” reutilizable */
+.hud-glass {
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+}
+
+/* Skeleton de carga con shimmer */
+.op-skeleton {
+  background: linear-gradient(
+    100deg,
+    rgba(148,163,184,0.10) 30%,
+    rgba(148,163,184,0.22) 50%,
+    rgba(148,163,184,0.10) 70%
+  );
+  background-size: 220% 100%;
+  animation: op-shimmer 1.5s linear infinite;
+}
+
+.op-float   { animation: op-float 5s ease-in-out infinite; }
+.op-glow    { animation: op-glow-pulse 2.4s ease-in-out infinite; }
+
+/* Scrollbar discreta para el shell de la app */
+.op-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+.op-scroll::-webkit-scrollbar-thumb {
+  background: rgba(100,116,139,0.35);
+  border-radius: 999px;
+}
+.op-scroll::-webkit-scrollbar-track { background: transparent; }
+
+/* Respeta usuarios con movimiento reducido */
+@media (prefers-reduced-motion: reduce) {
+  .aurora-bg,
+  .op-float,
+  .op-glow,
+  .op-skeleton {
+    animation: none !important;
+  }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

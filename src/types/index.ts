@@ -113,6 +113,25 @@ export interface Reminder {
   isPaid: boolean;
   paidAt?: string;
   notes?: string;
+  /** Minutos antes del vence para disparar la alarma (0 = solo al vencer). */
+  alarmMinutes?: number;
+  /** Si se pospuso, nueva hora acumulada (timestamp ISO del próximo repique). */
+  snoozedUntil?: string;
+}
+
+export type AgendaEventColor = 'sky' | 'rose' | 'emerald' | 'amber' | 'violet';
+
+/** Evento libre de la agenda (trabajos, vencimientos, cumpleaños, etc.). */
+export interface AgendaEvent {
+  id: string;
+  title: string;
+  date: string; // YYYY-MM-DD
+  time?: string; // HH:mm
+  durationMinutes?: number;
+  color: AgendaEventColor;
+  notes?: string;
+  reminderMinutes?: number; // alarma X minutos antes (opcional)
+  reminderId?: string; // vínculo con recordatorio generado
 }
 
 // GESTIÓN INDIVIDUAL DE AHORROS
@@ -204,6 +223,8 @@ export interface BusinessProfile {
 
 export type AppThemeId = 'minimal' | 'cyberpunk' | 'sakura' | 'golden';
 export type AppDisplayMode = 'personal' | 'commercial';
+/** Rango analítico de los gráficos de Home (persistido en configuración). */
+export type AppChartRangeId = 'month' | 'quarter' | 'year';
 
 export interface UserAppSettings {
   currency: CurrencyConfig;
@@ -214,5 +235,9 @@ export interface UserAppSettings {
   differentiatorMode: 'quick_entry' | 'daily_allowance' | 'zero_surprise_radar';
   theme: AppThemeId;
   activeMode: AppDisplayMode;
+  /** Rango seleccionado en los gráficos de Home (persiste entre sesiones). */
+  analyticChartRange: AppChartRangeId;
+  /** Objetivo de balance neto MENSUAL (centavos). 0 = sin objetivo. */
+  monthlyNetGoalInCents: number;
   businessProfile: BusinessProfile;
 }

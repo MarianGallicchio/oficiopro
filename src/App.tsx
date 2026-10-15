@@ -1,550 +1,277 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Smartphone, 
-  FolderTree, 
-  Code2, 
-  Sparkles, 
-  Zap, 
-  ShieldAlert, 
-  DollarSign, 
-  CheckCircle2, 
-  HelpCircle,
-  Layers,
-  PiggyBank,
-  Briefcase
+import React, { useCallback, useEffect, useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import {
+  Wallet, HelpCircle, BellRing, LogOut, ShieldCheck, Info,
 } from 'lucide-react';
-import { 
-  Transaction, 
-  Reminder, 
-  Category, 
-  Account, 
-  UserAppSettings, 
-  SavingsGoal, 
-  Client, 
-  Quote, 
-  Invoice, 
-  TimeEntry 
-} from './types';
-import { 
-  INITIAL_SETTINGS, 
-  INITIAL_ACCOUNTS, 
-  INITIAL_CATEGORIES, 
-  INITIAL_TRANSACTIONS, 
-  INITIAL_REMINDERS,
-  INITIAL_SAVINGS_GOALS,
-  INITIAL_CLIENTS,
-  INITIAL_QUOTES,
-  INITIAL_INVOICES,
-  INITIAL_TIME_ENTRIES
-} from './data/mockData';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { useAppData } from './hooks/useAppData';
+import { useAlarmEngine, requestNotificationPermission } from './hooks/useAlarmEngine';
+import { AuthScreen } from './components/AuthScreen';
 import { MobileSimulator } from './components/MobileSimulator';
-import { Phase0Doc } from './components/Phase0Doc';
-import { FlutterCodeViewer } from './components/FlutterCodeViewer';
-import { NavigationFlowDiagram } from './components/NavigationFlowDiagram';
+import { AlarmCenter } from './components/AlarmCenter';
 import { UserHelpModal } from './components/UserHelpModal';
+import { UserAppSettings } from './types';
 
-export default function App() {
-  const [activeWorkbenchTab, setActiveWorkbenchTab] = useState<'simulator' | 'phase0' | 'flow' | 'code'>('simulator');
-  const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
+const THEME_AURORA: Record<UserAppSettings['theme'], string> = {
+  minimal: '',           // .aurora-bg por defecto
+  sakura: 'aurora-sakura',
+  cyberpunk: 'aurora-cyberpunk',
+  golden: 'aurora-golden',
+};
 
-  const [settings, setSettings] = useState<UserAppSettings>(() => {
-    const saved = localStorage.getItem('op_fin_settings_v2');
-    return saved ? JSON.parse(saved) : INITIAL_SETTINGS;
-  });
+/** App ya autenticada: shell + motor de alarmas + cuerpo de la app. */
+function AppShell() {
+  const { user, signOut } = useAuth();
+  const {
+    db, updateSettings, addTransaction, payReminder,
+    addReminder, updateReminder, deleteReminder, addSavingsDeposit,
+    addClient, addQuote, convertQuoteToInvoice,
+    registerInvoicePayment, toggleTimer, billTimeEntry,
+    addAgendaEvent, deleteAgendaEvent,
+  } = useAppData(user);
 
-  const [accounts, setAccounts] = useState<Account[]>(() => {
-    const saved = localStorage.getItem('op_fin_accounts_v2');
-    return saved ? JSON.parse(saved) : INITIAL_ACCOUNTS;
-  });
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
+  const [permission, setPermission] = useState<NotificationPermission | 'unsupported'>('default');
+  const [permissionAskedHint, setPermissionAskedHint] = useState(false);
 
-  const [categories, setCategories] = useState<Category[]>(() => {
-    const saved = localStorage.getItem('op_fin_categories_v2');
-    return saved ? JSON.parse(saved) : INITIAL_CATEGORIES;
-  });
+  // db es null mientras carga; els hooks de alarma requieren datos
+  const alarmSource = db
+    ? { reminders: db.reminders, agendaEvents: db.agendaEvents, invoices: db.invoices, transactions: db.transactions, settings: db.settings }
+    : null;
 
-  const [transactions, setTransactions] = useState<Transaction[]>(() => {
-    const saved = localStorage.getItem('op_fin_transactions_v2');
-    return saved ? JSON.parse(saved) : INITIAL_TRANSACTIONS;
-  });
-
-  const [reminders, setReminders] = useState<Reminder[]>(() => {
-    const saved = localStorage.getItem('op_fin_reminders_v2');
-    return saved ? JSON.parse(saved) : INITIAL_REMINDERS;
-  });
-
-  const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>(() => {
-    const saved = localStorage.getItem('op_fin_savings_goals');
-    return saved ? JSON.parse(saved) : INITIAL_SAVINGS_GOALS;
-  });
-
-  const [clients, setClients] = useState<Client[]>(() => {
-    const saved = localStorage.getItem('op_fin_clients');
-    return saved ? JSON.parse(saved) : INITIAL_CLIENTS;
-  });
-
-  const [quotes, setQuotes] = useState<Quote[]>(() => {
-    const saved = localStorage.getItem('op_fin_quotes');
-    return saved ? JSON.parse(saved) : INITIAL_QUOTES;
-  });
-
-  const [invoices, setInvoices] = useState<Invoice[]>(() => {
-    const saved = localStorage.getItem('op_fin_invoices');
-    return saved ? JSON.parse(saved) : INITIAL_INVOICES;
-  });
-
-  const [timeEntries, setTimeEntries] = useState<TimeEntry[]>(() => {
-    const saved = localStorage.getItem('op_fin_time_entries');
-    return saved ? JSON.parse(saved) : INITIAL_TIME_ENTRIES;
-  });
-
-  // LocalStorage sync
-  useEffect(() => {
-    localStorage.setItem('op_fin_settings_v2', JSON.stringify(settings));
-  }, [settings]);
+  const {
+    alarms, dismissAlarm, snoozeAlarm, fireTestAlarm,
+  } = useAlarmEngine(alarmSource, permission);
 
   useEffect(() => {
-    localStorage.setItem('op_fin_accounts_v2', JSON.stringify(accounts));
-  }, [accounts]);
+    requestNotificationPermission().then((p) => {
+      setPermission(p);
+      if (p !== 'granted') setPermissionAskedHint(true);
+    });
+  }, []);
 
-  useEffect(() => {
-    localStorage.setItem('op_fin_categories_v2', JSON.stringify(categories));
-  }, [categories]);
-
-  useEffect(() => {
-    localStorage.setItem('op_fin_transactions_v2', JSON.stringify(transactions));
-  }, [transactions]);
-
-  useEffect(() => {
-    localStorage.setItem('op_fin_reminders_v2', JSON.stringify(reminders));
-  }, [reminders]);
-
-  useEffect(() => {
-    localStorage.setItem('op_fin_savings_goals', JSON.stringify(savingsGoals));
-  }, [savingsGoals]);
-
-  useEffect(() => {
-    localStorage.setItem('op_fin_clients', JSON.stringify(clients));
-  }, [clients]);
-
-  useEffect(() => {
-    localStorage.setItem('op_fin_quotes', JSON.stringify(quotes));
-  }, [quotes]);
-
-  useEffect(() => {
-    localStorage.setItem('op_fin_invoices', JSON.stringify(invoices));
-  }, [invoices]);
-
-  useEffect(() => {
-    localStorage.setItem('op_fin_time_entries', JSON.stringify(timeEntries));
-  }, [timeEntries]);
-
-  // Handlers
-  const handleAddTransaction = (txData: Omit<Transaction, 'id'>) => {
-    const newTx: Transaction = {
-      ...txData,
-      id: `tx-${Date.now()}`,
-    };
-    setTransactions((prev) => [newTx, ...prev]);
+  const [toast, setToast] = useState<string | null>(null);
+  const toastReappear = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 3200);
   };
 
-  const handlePayReminder = (reminderId: string) => {
-    const targetRem = reminders.find((r) => r.id === reminderId);
-    if (!targetRem) return;
+  const handleSnooze = useCallback((alarm: { key: string }, minutes: number) => {
+    dismissAlarm(alarm.key);
+    setTimeout(() => {
+      toastReappear(`⏱ Recordatorio pospuesto ${minutes} min. Te avisamos de nuevo.`);
+    }, 300);
+  }, [dismissAlarm]);
 
-    setReminders((prev) =>
-      prev.map((r) =>
-        r.id === reminderId
-          ? { ...r, isPaid: true, paidAt: new Date().toISOString() }
-          : r
-      )
+  if (!db) {
+    // Esqueletos de carga mientras se restaura la base por usuario
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 aurora-bg flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <motion.div
+            animate={{ scale: [1, 1.08, 1], opacity: [0.7, 1, 0.7] }}
+            transition={{ repeat: Infinity, duration: 1.4 }}
+            className="w-14 h-14 rounded-2xl bg-gradient-to-br from-sky-500 to-sky-700 text-white grid place-items-center shadow-xl shadow-sky-500/30"
+          >
+            <Wallet className="w-7 h-7" />
+          </motion.div>
+          <div className="w-40 h-2 rounded-full op-skeleton" />
+          <p className="text-[11px] text-slate-500">Restaurando tus datos…</p>
+        </div>
+      </div>
     );
+  }
 
-    const newTx: Transaction = {
-      id: `tx-${Date.now()}`,
-      type: 'expense',
-      accountId: targetRem.accountId,
-      categoryId: targetRem.categoryId,
-      amountInCents: targetRem.amountInCents,
-      date: new Date().toISOString().split('T')[0],
-      time: new Date().toTimeString().slice(0, 5),
-      note: `Pago de recordatorio: ${targetRem.title}`,
-      reminderId: targetRem.id,
-    };
-    setTransactions((prev) => [newTx, ...prev]);
-  };
-
-  const handleAddSavingsDeposit = (goalId: string, amountInCents: number) => {
-    const goal = savingsGoals.find((g) => g.id === goalId);
-    if (!goal) return;
-
-    // Increase goal current amount
-    setSavingsGoals((prev) =>
-      prev.map((g) =>
-        g.id === goalId
-          ? {
-              ...g,
-              currentAmountInCents: g.currentAmountInCents + amountInCents,
-              isCompleted: g.currentAmountInCents + amountInCents >= g.targetAmountInCents,
-            }
-          : g
-      )
-    );
-
-    // Create financial transaction record
-    const newTx: Transaction = {
-      id: `tx-${Date.now()}`,
-      type: 'expense',
-      accountId: accounts[0].id,
-      categoryId: 'cat-savings',
-      amountInCents,
-      date: new Date().toISOString().split('T')[0],
-      time: new Date().toTimeString().slice(0, 5),
-      note: `Aporte a meta: ${goal.name}`,
-      savingsGoalId: goalId,
-    };
-    setTransactions((prev) => [newTx, ...prev]);
-  };
-
-  const handleAddClient = (clientData: Omit<Client, 'id' | 'balancePendingInCents'>) => {
-    const newClient: Client = {
-      ...clientData,
-      id: `cli-${Date.now()}`,
-      balancePendingInCents: 0,
-    };
-    setClients((prev) => [...prev, newClient]);
-  };
-
-  const handleAddQuote = (quoteData: Omit<Quote, 'id'>) => {
-    const newQuote: Quote = {
-      ...quoteData,
-      id: `q-${Date.now()}`,
-    };
-    setQuotes((prev) => [newQuote, ...prev]);
-  };
-
-  const handleConvertQuoteToInvoice = (quoteId: string) => {
-    const quote = quotes.find((q) => q.id === quoteId);
-    if (!quote) return;
-
-    // Mark quote as invoiced
-    setQuotes((prev) =>
-      prev.map((q) => (q.id === quoteId ? { ...q, status: 'invoiced' } : q))
-    );
-
-    // Create Invoice
-    const newInvoice: Invoice = {
-      id: `inv-${Date.now()}`,
-      number: `0001-${String(invoices.length + 45).padStart(8, '0')}`,
-      docType: 'Factura C',
-      clientId: quote.clientId,
-      clientName: quote.clientName,
-      date: new Date().toISOString().split('T')[0],
-      dueDate: new Date(Date.now() + 15 * 86400000).toISOString().split('T')[0],
-      items: quote.items,
-      totalInCents: quote.totalInCents,
-      paidInCents: 0,
-      status: 'unpaid',
-      quoteId: quote.id,
-      notes: 'Generada a partir de presupuesto aprobado.',
-    };
-
-    setInvoices((prev) => [newInvoice, ...prev]);
-
-    // Update client pending balance
-    setClients((prev) =>
-      prev.map((c) =>
-        c.id === quote.clientId
-          ? { ...c, balancePendingInCents: c.balancePendingInCents + quote.totalInCents }
-          : c
-      )
-    );
-  };
-
-  const handleRegisterInvoicePayment = (invoiceId: string, amountInCents: number) => {
-    const invoice = invoices.find((inv) => inv.id === invoiceId);
-    if (!invoice) return;
-
-    const newPaid = Math.min(invoice.totalInCents, invoice.paidInCents + amountInCents);
-    const isNowPaid = newPaid >= invoice.totalInCents;
-
-    setInvoices((prev) =>
-      prev.map((inv) =>
-        inv.id === invoiceId
-          ? {
-              ...inv,
-              paidInCents: newPaid,
-              status: isNowPaid ? 'paid' : 'partial',
-            }
-          : inv
-      )
-    );
-
-    // Reduce client pending balance
-    setClients((prev) =>
-      prev.map((c) =>
-        c.id === invoice.clientId
-          ? { ...c, balancePendingInCents: Math.max(0, c.balancePendingInCents - amountInCents) }
-          : c
-      )
-    );
-
-    // Record income transaction in integer cents
-    const newTx: Transaction = {
-      id: `tx-${Date.now()}`,
-      type: 'income',
-      accountId: accounts[0].id,
-      categoryId: 'cat-sales',
-      amountInCents,
-      date: new Date().toISOString().split('T')[0],
-      time: new Date().toTimeString().slice(0, 5),
-      note: `Cobro ${invoice.docType} N° ${invoice.number} (${invoice.clientName})`,
-      clientId: invoice.clientId,
-      invoiceId: invoice.id,
-    };
-    setTransactions((prev) => [newTx, ...prev]);
-  };
-
-  const handleToggleTimer = (entryId: string) => {
-    setTimeEntries((prev) =>
-      prev.map((entry) => {
-        if (entry.id === entryId) {
-          return { ...entry, isRunning: !entry.isRunning };
-        }
-        return entry;
-      })
-    );
-  };
-
-  const handleBillTimeEntry = (entryId: string) => {
-    const entry = timeEntries.find((t) => t.id === entryId);
-    if (!entry) return;
-
-    const totalCents = Math.round((entry.secondsLogged / 3600) * entry.hourlyRateInCents);
-
-    // Create quote from hours
-    const newQuote: Quote = {
-      id: `q-${Date.now()}`,
-      number: `P-${String(quotes.length + 12).padStart(4, '0')}`,
-      clientId: entry.clientId,
-      clientName: entry.clientName,
-      date: new Date().toISOString().split('T')[0],
-      validDays: 10,
-      items: [
-        {
-          id: `qi-${Date.now()}`,
-          description: `${entry.description} (${(entry.secondsLogged / 3600).toFixed(1)} horas)`,
-          quantity: 1,
-          unitPriceInCents: totalCents,
-          totalInCents: totalCents,
-        },
-      ],
-      subtotalInCents: totalCents,
-      taxRatePercent: 0,
-      totalInCents: totalCents,
-      notes: 'Presupuesto emitido a partir de horas de trabajo acumuladas.',
-      status: 'approved',
-    };
-
-    setQuotes((prev) => [newQuote, ...prev]);
-    setTimeEntries((prev) =>
-      prev.map((t) => (t.id === entryId ? { ...t, isInvoiced: true, isRunning: false } : t))
-    );
-  };
+  const dark = db.settings.theme === 'cyberpunk';
 
   return (
-    <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-100 flex flex-col font-sans">
-      {/* Studio Header */}
-      <header className="border-b border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-sky-600 text-white font-black text-sm flex items-center justify-center shadow-md shadow-sky-500/20">
-              $
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-black text-slate-900 dark:text-white text-base tracking-tight">Finanzas & Oficio</span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
-                  HUD Dual: Personal + Comercial
-                </span>
+    <div className={THEME_AURORA[db.settings.theme]}>
+      {/* Fondo aurora permanente de la app */}
+      <div className={`${dark ? 'dark' : ''} min-h-screen relative flex flex-col ${dark ? 'bg-slate-950' : 'bg-slate-100'}`}>
+        <div className="absolute inset-0 aurora-bg pointer-events-none" aria-hidden="true" />
+
+        {/* ===== BARRA SUPERIOR ===== */}
+        <header className="relative z-30 border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-0">
+          <div className="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between gap-2">
+            {/* Logo */}
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-sky-500 to-sky-700 text-white grid place-items-center shadow-md shadow-sky-500/25 shrink-0">
+                <Wallet className="w-4.5 h-4.5" />
               </div>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 hidden sm:block">
-                Ahorros, Ingresos, Gastos (&lt;10s), Clientes, Presupuestos, Cobros con Alias y Ayuda Completa
-              </p>
-            </div>
-          </div>
-
-          {/* Workbench Tabs & Help Trigger */}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setIsHelpModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-300 dark:border-sky-800 font-bold text-xs hover:bg-sky-100 transition shadow-xs"
-            >
-              <HelpCircle className="w-4 h-4 text-sky-600 dark:text-sky-400" />
-              <span>Ayuda Completa</span>
-            </button>
-
-            <nav className="flex items-center gap-1 bg-slate-100 dark:bg-slate-950 p-1 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-bold">
-              <button
-                onClick={() => setActiveWorkbenchTab('simulator')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition ${
-                  activeWorkbenchTab === 'simulator'
-                    ? 'bg-sky-600 text-white shadow-xs'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-                }`}
-              >
-                <Smartphone className="w-4 h-4" />
-                <span>Simulador HUD</span>
-              </button>
-
-              <button
-                onClick={() => setActiveWorkbenchTab('flow')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition ${
-                  activeWorkbenchTab === 'flow'
-                    ? 'bg-sky-600 text-white shadow-xs'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-                }`}
-              >
-                <Zap className="w-4 h-4" />
-                <span className="hidden sm:inline">Flujo UX Minimalista</span>
-              </button>
-
-              <button
-                onClick={() => setActiveWorkbenchTab('phase0')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition ${
-                  activeWorkbenchTab === 'phase0'
-                    ? 'bg-sky-600 text-white shadow-xs'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-                }`}
-              >
-                <FolderTree className="w-4 h-4" />
-                <span className="hidden sm:inline">Arquitectura & Fases</span>
-              </button>
-
-              <button
-                onClick={() => setActiveWorkbenchTab('code')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition ${
-                  activeWorkbenchTab === 'code'
-                    ? 'bg-sky-600 text-white shadow-xs'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-                }`}
-              >
-                <Code2 className="w-4 h-4" />
-                <span className="hidden sm:inline">Código Drift Flutter</span>
-              </button>
-            </nav>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-6 lg:p-8">
-        {activeWorkbenchTab === 'simulator' && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-            {/* Phone Simulator */}
-            <div className="lg:col-span-6 flex justify-center">
-              <MobileSimulator
-                settings={settings}
-                accounts={accounts}
-                categories={categories}
-                transactions={transactions}
-                reminders={reminders}
-                savingsGoals={savingsGoals}
-                clients={clients}
-                quotes={quotes}
-                invoices={invoices}
-                timeEntries={timeEntries}
-                onAddTransaction={handleAddTransaction}
-                onPayReminder={handlePayReminder}
-                onUpdateSettings={setSettings}
-                onAddSavingsDeposit={handleAddSavingsDeposit}
-                onAddClient={handleAddClient}
-                onAddQuote={handleAddQuote}
-                onConvertQuoteToInvoice={handleConvertQuoteToInvoice}
-                onRegisterInvoicePayment={handleRegisterInvoicePayment}
-                onToggleTimer={handleToggleTimer}
-                onBillTimeEntry={handleBillTimeEntry}
-              />
-            </div>
-
-            {/* Quick Context & HUD Explanations */}
-            <div className="lg:col-span-6 space-y-4 pt-2">
-              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-xs font-bold mb-2">
-                  <Sparkles className="w-3.5 h-3.5" /> HUD GENERAL RENOVADO & FASES SIGUIENTES
-                </div>
-                <h2 className="text-lg font-black text-slate-900 dark:text-white tracking-tight">
-                  Gestión Personal de Ahorros + Módulo Comercial
-                </h2>
-                <p className="text-slate-600 dark:text-slate-400 text-xs mt-1 leading-relaxed">
-                  El simulador móvil a la izquierda incluye el interruptor dual en el HUD superior para cambiar entre uso personal y comercial con 1 toque:
+              <div className="min-w-0">
+                <h1 className="font-black tracking-tight text-slate-900 dark:text-white text-sm leading-none truncate">
+                  Oficio<span className="text-sky-600 dark:text-sky-400">Pro</span>
+                </h1>
+                <p className="text-[9px] text-slate-500 dark:text-slate-400 truncate">
+                  {user?.provider === 'demo' ? 'Modo demo (datos locales)' : user?.displayName}
                 </p>
+              </div>
+            </div>
 
-                <div className="mt-4 space-y-2.5 text-xs">
-                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex items-start gap-2.5">
-                    <PiggyBank className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                    <div>
-                      <strong className="text-slate-900 dark:text-white">Metas de Ahorro Individual:</strong> Barra de progreso visual, cálculo de porcentaje acumulado y botón "Aportar a Meta" que actualiza tu ahorro al instante.
-                    </div>
-                  </div>
+            {/* Acciones */}
+            <div className="flex items-center gap-1.5 shrink-0">
+              {/* Alertas activas */}
+              {alarms.length > 0 && (
+                <motion.button
+                  animate={{ rotate: [0, -10, 10, -6, 0] }}
+                  transition={{ repeat: Infinity, repeatDelay: 3 }}
+                  className="relative p-2 rounded-xl bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-800"
+                  title={`${alarms.length} alertas activas`}
+                >
+                  <BellRing className="w-4 h-4" />
+                  <span className="absolute -top-1 -right-1 w-4 h-4 text-[8px] rounded-full bg-rose-600 text-white grid place-items-center font-black">
+                    {alarms.length}
+                  </span>
+                </motion.button>
+              )}
 
-                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex items-start gap-2.5">
-                    <Briefcase className="w-4 h-4 text-sky-500 shrink-0 mt-0.5" />
-                    <div>
-                      <strong className="text-slate-900 dark:text-white">Fases Siguientes (Modo Comercial):</strong> Clientes con CUIT/WhatsApp, Presupuestos formales, Facturas & Cobros con Alias Mercado Pago, y Control de Horas con cronómetro en tiempo real.
-                    </div>
-                  </div>
+              <button
+                onClick={fireTestAlarm}
+                className="hidden sm:flex p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                title="Probar alarma de ejemplo"
+              >
+                <ShieldCheck className="w-4 h-4" />
+              </button>
 
-                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex items-start gap-2.5">
-                    <Sparkles className="w-4 h-4 text-pink-500 shrink-0 mt-0.5" />
-                    <div>
-                      <strong className="text-slate-900 dark:text-white">Temas Visuales Animados:</strong> Probá cambiar a <strong>Sakura 🌸</strong> (caen pétalos de cerezo), <strong>Cyberpunk ⚡</strong> (destellos neón cian/rosa con scanline) o <strong>Luxury ✨</strong> (partículas doradas).
-                    </div>
-                  </div>
+              <button
+                onClick={() => setIsHelpOpen(true)}
+                className="p-2 rounded-xl bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-300 dark:border-sky-800 hover:bg-sky-100 dark:hover:bg-sky-900 transition"
+                title="Centro de ayuda"
+              >
+                <HelpCircle className="w-4 h-4" />
+              </button>
 
-                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex items-start gap-2.5">
-                    <HelpCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-                    <div>
-                      <strong className="text-slate-900 dark:text-white">Ayuda Completa al Usuario:</strong> Tocá el botón de ayuda en el simulador o arriba para ver tutoriales paso a paso, regla 50/30/20 y preguntas frecuentes.
-                    </div>
-                  </div>
-                </div>
+              {/* Usuario */}
+              <button
+                onClick={() => { signOut(); }}
+                className="flex items-center gap-1.5 pl-2 pr-2.5 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition"
+                title={user?.provider === 'demo' ? 'Salir del modo demo' : `Cerrar sesión (${user?.email ?? ''})`}
+              >
+                {user?.photoURL ? (
+                  <img src={user.photoURL} alt="" className="w-5 h-5 rounded-full object-cover" />
+                ) : (
+                  <span className="w-5 h-5 rounded-full bg-gradient-to-br from-sky-500 to-emerald-500 text-white text-[9px] font-black grid place-items-center">
+                    {(user?.displayName || 'U').charAt(0).toUpperCase()}
+                  </span>
+                )}
+                <LogOut className="w-3.5 h-3.5 opacity-70" />
+              </button>
+            </div>
+          </div>
+        </header>
 
-                <div className="mt-4 pt-3 border-t border-slate-200 dark:border-slate-800 flex flex-wrap gap-2">
+        {/* ===== CUERPO ===== */}
+        <main className="relative z-10 flex-1 min-h-0 flex justify-center overflow-hidden">
+          <MobileSimulator
+            settings={db.settings}
+            accounts={db.accounts}
+            categories={db.categories}
+            transactions={db.transactions}
+            reminders={db.reminders}
+            savingsGoals={db.savingsGoals}
+            clients={db.clients}
+            quotes={db.quotes}
+            invoices={db.invoices}
+            timeEntries={db.timeEntries}
+            agendaEvents={db.agendaEvents}
+            onAddTransaction={addTransaction}
+            onPayReminder={payReminder}
+            onUpdateSettings={(s) => updateSettings(s)}
+            onAddReminder={addReminder}
+            onUpdateReminder={updateReminder}
+            onDeleteReminder={deleteReminder}
+            onAddEvent={addAgendaEvent}
+            onDeleteEvent={deleteAgendaEvent}
+            onAddSavingsDeposit={addSavingsDeposit}
+            onAddClient={addClient}
+            onAddQuote={addQuote}
+            onConvertQuoteToInvoice={convertQuoteToInvoice}
+            onRegisterInvoicePayment={registerInvoicePayment}
+            onToggleTimer={toggleTimer}
+            onBillTimeEntry={billTimeEntry}
+          />
+        </main>
+
+        {/* ===== CENTRO DE ALERTAS ===== */}
+        <AlarmCenter
+          alarms={alarms}
+          currency={db.settings.currency}
+          onDismiss={dismissAlarm}
+          onSnooze={(a, minutes) => handleSnooze(a, minutes)}
+        />
+
+        {/* Toast informativo */}
+        <AnimatePresence>
+          {toast && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              className="fixed left-1/2 -translate-x-1/2 bottom-24 z-[70] px-4 py-2 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-[11px] font-bold shadow-xl"
+            >
+              {toast}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Aviso de permiso de notificaciones */}
+        <AnimatePresence>
+          {permissionAskedHint && permission !== 'unsupported' && alarms.length === 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 24 }}
+              className="fixed left-3 right-3 bottom-16 sm:right-auto sm:w-80 z-[60] rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl p-3 flex items-start gap-2.5"
+            >
+              <Info className="w-4 h-4 text-sky-600 shrink-0 mt-0.5" />
+              <div className="flex-1 text-[10px] text-slate-600 dark:text-slate-300">
+                <p className="font-black text-slate-900 dark:text-white mb-0.5">Armá las alarmas al 100%</p>
+                Permití notificaciones del navegador cuando te lo pida para recibir los avisos aunque otra pestaña esté abierta.
+                <div className="flex gap-1.5 mt-1.5">
                   <button
-                    onClick={() => setIsHelpModalOpen(true)}
-                    className="flex items-center gap-1.5 px-3.5 py-2 bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold rounded-xl shadow-xs transition"
+                    onClick={async () => { setPermissionAskedHint(false); setPermission(await requestNotificationPermission()); }}
+                    className="px-2 py-1 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-[10px] font-black transition"
                   >
-                    <HelpCircle className="w-3.5 h-3.5" />
-                    <span>Abrir Centro de Ayuda</span>
+                    Activar permiso
                   </button>
-
                   <button
-                    onClick={() => setActiveWorkbenchTab('code')}
-                    className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-800 dark:text-slate-200 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 transition"
+                    onClick={() => setPermissionAskedHint(false)}
+                    className="px-2 py-1 rounded-lg border border-slate-300 dark:border-slate-700 text-[10px] font-bold text-slate-500"
                   >
-                    <Code2 className="w-3.5 h-3.5" />
-                    <span>Ver Código Flutter</span>
+                    Ahora no
                   </button>
                 </div>
               </div>
-            </div>
-          </div>
-        )}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-        {activeWorkbenchTab === 'flow' && <NavigationFlowDiagram />}
-
-        {activeWorkbenchTab === 'phase0' && <Phase0Doc />}
-
-        {activeWorkbenchTab === 'code' && <FlutterCodeViewer />}
-      </main>
-
-      {/* Footer */}
-      <footer className="border-t border-slate-200 dark:border-slate-900 bg-white dark:bg-slate-950 py-3 text-center text-xs text-slate-500">
-        Gestión Personal de Ahorros + Modo Comercial • Drift SQLite en Centavos • Riverpod • 100% Offline
-      </footer>
-
-      {/* Global Help Modal */}
-      <UserHelpModal isOpen={isHelpModalOpen} onClose={() => setIsHelpModalOpen(false)} />
+        {/* Ayuda completa */}
+        <UserHelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
+      </div>
     </div>
+  );
+}
+
+function AuthGate() {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 aurora-bg flex items-center justify-center">
+        <div className="w-48 h-2 rounded-full op-skeleton" />
+      </div>
+    );
+  }
+
+  if (!user) return <AuthScreen />;
+  return <AppShell />;
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AuthGate />
+    </AuthProvider>
   );
 }
