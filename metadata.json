@@ -1,0 +1,6 @@
+{
+  "name": "OficioPro - Suite Móvil Offline para Freelancers",
+  "description": "App móvil todo en uno para freelancers y oficios: presupuestos, clientes, facturas, cobros y control de horas sin internet, con arquitectura Flutter y guía de Google Play.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
